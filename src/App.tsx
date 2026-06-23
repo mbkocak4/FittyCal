@@ -171,7 +171,16 @@ export default function App() {
   // On Mount: load API config status, load initial storage and bind Firebase Auth
   useEffect(() => {
     fetch("/api/config-status")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return res.json();
+        }
+        throw new Error("API status check did not return JSON");
+      })
       .then((data) => {
         setHasApiKey(data.hasKey);
         if (!data.hasKey) {

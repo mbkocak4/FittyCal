@@ -209,11 +209,40 @@ export default function MealAnalysisTab({
       clearInterval(interval);
 
       if (!response.ok) {
-        const errJson = await response.json();
-        throw new Error(errJson.error || "Sunucu analizi tamamlayamadı.");
+        let errMsg = "Sunucu analizi tamamlayamadı.";
+        try {
+          const textRes = await response.text();
+          try {
+            const errJson = JSON.parse(textRes);
+            errMsg = errJson.error || errMsg;
+          } catch {
+            if (textRes && textRes.length < 500) {
+              errMsg = textRes;
+            } else if (textRes && textRes.includes("<title>")) {
+              const matchedTitle = textRes.match(/<title>([\s\S]*?)<\/title>/i);
+              if (matchedTitle?.[1]) {
+                errMsg = `Sunucu Hatası (${response.status}): ${matchedTitle[1].trim()}`;
+              } else {
+                errMsg = `Sunucu Hatası (${response.status}): Lütfen uygulamayı yeni sekmede açarak deneyin.`;
+              }
+            } else {
+              errMsg = `Sunucu Hatası (${response.status})`;
+            }
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(errMsg);
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        const textRes = await response.text();
+        result = JSON.parse(textRes);
+      } catch {
+        throw new Error("Yapay zekanın yanıtı veya sunucu cevabı geçerli bir JSON formatında alınamadı.");
+      }
+
       if (result.success && Array.isArray(result.data)) {
         const hydrated = result.data.map((item: any, idx: number) => ({
           ...item,
@@ -239,10 +268,46 @@ export default function MealAnalysisTab({
       return;
     }
 
-    setImageMimeType(file.type);
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPreviewImage(reader.result as string);
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+          setImageMimeType("image/jpeg");
+          setPreviewImage(compressedBase64);
+        } else {
+          setImageMimeType(file.type);
+          setPreviewImage(reader.result as string);
+        }
+      };
+
+      img.onerror = () => {
+        setImageMimeType(file.type);
+        setPreviewImage(reader.result as string);
+      };
+
+      img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
   };
