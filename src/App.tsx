@@ -34,6 +34,7 @@ import {
   OperationType
 } from "./lib/firebase";
 import AuthModal from "./components/AuthModal";
+import { resolveApiUrl } from "./lib/api-resolver";
 
 // Standard daily goals for default users
 const DEFAULT_GOALS: UserDailyGoals = {
@@ -170,7 +171,7 @@ export default function App() {
 
   // On Mount: load API config status, load initial storage and bind Firebase Auth
   useEffect(() => {
-    fetch("/api/config-status")
+    fetch(resolveApiUrl("/api/config-status"))
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP error ${res.status}`);

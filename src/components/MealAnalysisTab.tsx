@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { FoodItem } from "../types";
+import { resolveApiUrl } from "../lib/api-resolver";
 
 interface MealAnalysisTabProps {
   inputText: string;
@@ -193,7 +194,7 @@ export default function MealAnalysisTab({
         base64Data = previewImage.split(",")[1];
       }
 
-      const response = await fetch("/api/extract-nutrition", {
+      const response = await fetch(resolveApiUrl("/api/extract-nutrition"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
