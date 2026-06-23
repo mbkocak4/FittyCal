@@ -273,7 +273,7 @@ export default function MealAnalysisTab({
     reader.onloadend = () => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1024;
+        const maxDim = 800; // Optimized dimension for high macro analysis speed
         let width = img.width;
         let height = img.height;
 
@@ -294,7 +294,7 @@ export default function MealAnalysisTab({
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75); // Highly optimized JPEG compression quality
           setImageMimeType("image/jpeg");
           setPreviewImage(compressedBase64);
         } else {
