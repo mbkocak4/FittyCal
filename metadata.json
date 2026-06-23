@@ -1,0 +1,6 @@
+{
+  "name": "FittyCal",
+  "description": "Doğal dille yazılan öğünlerin veya yüklenen yemek fotoğraflarının kalori ve makro besin değerlerini (protein, karbonhidrat, yağ) otomatik çıkaran yapay zeka destekli asistan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
