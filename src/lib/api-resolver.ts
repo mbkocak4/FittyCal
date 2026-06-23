@@ -3,20 +3,50 @@
  * if relative URLs are misrouted or blocked in the editor's sandboxed iframe context.
  */
 export function resolveApiUrl(path: string): string {
-  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  // If we are in a server or non-browser environment, return relative path
+  if (typeof window === "undefined") {
+    return path;
+  }
 
-  // If we are currently running directly on the development or preview domains,
-  // same-origin absolute URLs are extremely safe and prevent routing bugs on mobile platforms.
-  if (currentOrigin && currentOrigin !== "null" && currentOrigin.includes(".run.app")) {
+  const currentOrigin = window.location.origin;
+
+  // If currentOrigin exists, matches a safe origin, and is not inside a sandbox like "null"
+  if (
+    currentOrigin && 
+    currentOrigin !== "null" && 
+    !currentOrigin.includes("googleusercontent") && 
+    !currentOrigin.includes("aistudio-preview")
+  ) {
     return `${currentOrigin}${path}`;
   }
 
   // Detect which environment (development vs preview/shared) we are in.
   // We can look at the current page URL, referrer, or document URI.
-  const hrefStr = typeof window !== "undefined" ? window.location.href : "";
-  const referrerStr = typeof window !== "undefined" ? document.referrer : "";
+  const hrefStr = window.location.href || "";
+  const referrerStr = typeof document !== "undefined" ? document.referrer : "";
   const docUrl = typeof document !== "undefined" ? document.URL : "";
-  
+
+  // Helper to extract a valid .run.app or localhost URL from a string
+  const extractOrigin = (str: string): string | null => {
+    if (!str) return null;
+    const match = str.match(/https?:\/\/[^/]+/);
+    if (match) {
+      const originCandidate = match[0];
+      if (
+        (originCandidate.includes(".run.app") || originCandidate.includes("localhost") || originCandidate.includes("127.0.0.1")) &&
+        !originCandidate.includes("googleusercontent")
+      ) {
+        return originCandidate;
+      }
+    }
+    return null;
+  };
+
+  const detectedOrigin = extractOrigin(hrefStr) || extractOrigin(docUrl) || extractOrigin(referrerStr);
+  if (detectedOrigin) {
+    return `${detectedOrigin}${path}`;
+  }
+
   const isPre = hrefStr.includes("-pre-") || 
                 referrerStr.includes("-pre-") || 
                 docUrl.includes("-pre-") ||

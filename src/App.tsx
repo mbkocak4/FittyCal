@@ -55,16 +55,37 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 // Safe localStorage wrapper to prevent SecurityError inside sandboxed iframes
+const isStorageAvailable = () => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return false;
+    }
+    const testKey = "__tracker_storage_test__";
+    window.localStorage.setItem(testKey, testKey);
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+const storageAvailable = isStorageAvailable();
+const memoryStore: Record<string, string> = {};
+
 const safeStorage = {
   getItem: (key: string): string | null => {
+    if (!storageAvailable) {
+      return memoryStore[key] !== undefined ? memoryStore[key] : null;
+    }
     try {
       return localStorage.getItem(key);
     } catch (e) {
-      console.warn("Storage access denied:", e);
-      return null;
+      return memoryStore[key] !== undefined ? memoryStore[key] : null;
     }
   },
   setItem: (key: string, value: string): void => {
+    memoryStore[key] = value;
+    if (!storageAvailable) return;
     try {
       localStorage.setItem(key, value);
     } catch (e) {
@@ -72,11 +93,29 @@ const safeStorage = {
     }
   },
   removeItem: (key: string): void => {
+    delete memoryStore[key];
+    if (!storageAvailable) return;
     try {
       localStorage.removeItem(key);
     } catch (e) {
       console.warn("Storage access denied:", e);
     }
+  },
+  getAllKeys: (): string[] => {
+    const keysSet = new Set<string>(Object.keys(memoryStore));
+    if (storageAvailable) {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) {
+            keysSet.add(key);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load all keys from storage:", e);
+      }
+    }
+    return Array.from(keysSet);
   }
 };
 
@@ -149,14 +188,14 @@ export default function App() {
   const getLocalWaterLogs = () => {
     const logs: Record<string, number> = {};
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      const keys = safeStorage.getAllKeys();
+      for (const key of keys) {
         if (key && key.startsWith("water_log_")) {
-          logs[key] = Number(localStorage.getItem(key) || 0);
+          logs[key] = Number(safeStorage.getItem(key) || 0);
         }
       }
     } catch (e) {
-      console.warn(e);
+      console.warn("Could not retrieve local water logs:", e);
     }
     return logs;
   };
@@ -165,7 +204,7 @@ export default function App() {
     try {
       await setDoc(doc(db, "users", uid), fields, { merge: true });
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `users/${uid}`);
+      console.warn("Failed to sync to Firebase:", e);
     }
   };
 
@@ -250,7 +289,8 @@ export default function App() {
           try {
             docSnap = await getDoc(docRef);
           } catch (e) {
-            handleFirestoreError(e, OperationType.GET, `users/${user.uid}`);
+            console.warn("Could not retrieve user document from Firestore:", e);
+            showToast("Veritabanı bağlantısı kurulamadı. Veriler yerel olarak saklanacak.", "info");
             return;
           }
 
@@ -308,7 +348,8 @@ export default function App() {
                 historicalWater: waterLogs
               });
             } catch (e) {
-              handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
+              console.warn("Could not create initial user document in Firestore:", e);
+              showToast("Yeni kullanıcı profili buluta kaydedilemedi.", "info");
             }
           }
         } catch (err) {
